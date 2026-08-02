@@ -1,0 +1,151 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Fira Code", "Segoe UI", sans-serif;
+}
+
+body {
+    background: #0f1117;
+    color: #fff;
+}
+
+.topbar {
+    height: 60px;
+    background: #171b22;
+    border-bottom: 1px solid #2b313d;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+}
+
+.logo {
+    font-size: 22px;
+    font-weight: 400;
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+button {
+    background: #2979ff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 18px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #448aff;
+}
+
+select {
+    background: #1c212b;
+    color: white;
+    border: 1px solid #333;
+    padding: 7px 10px;
+    border-radius: 5px;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 360px 360px 1fr;
+    height: calc(100vh - 60px);
+}
+
+.accounts,
+.messages,
+.viewer {
+    overflow: auto;
+}
+
+.accounts {
+    color: #b0b0b0;
+    background: #171b22;
+    border-right: 1px solid #2b313d;
+    font-weight: normal;
+}
+
+.accountName {
+    color: #d1d1d1;
+    margin-bottom: 4px;
+}
+
+.messages {
+    background: #11151c;
+    border-right: 1px solid #2b313d;
+}
+
+.viewer {
+    background: #0f1117;
+}
+
+.section-title {
+    padding: 16px;
+    font-size: 18px;
+    font-weight: 400;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #2b313d;
+}
+
+/* --- Search Box Styling --- */
+.search-box-container {
+    position: relative;
+    padding: 10px 12px;
+    border-bottom: 1px solid #2a2f3b;
+}
+
+#accountSearch {
+    width: 100%;
+    padding: 8px 30px 8px 10px;
+    background: #0f1117;
+    border: 1px solid #2b313d;
+    border-radius: 6px;
+    color: #b0b0b0;
+    font-size: 13px;
+    outline: none;
+}
+
+#accountSearch:focus {
+    border-color: #2979ff;
+}
+
+.clear-btn {
+    position: absolute;
+    right: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    color: #888;
+    border: none;
+    font-size: 16px;
+    padding: 0;
+    cursor: pointer;
+    display: none; /* Shown dynamically via JS */
+}
+
+.clear-btn:hover {
+    background: transparent;
+    color: #fff;
+}
+
+.account {
+    padding: 14px;
+    cursor: pointer;
+    border-bottom: 1px solid #2a2f3b;
+    word-break: break-all;
+}
+
+.placeholder {
+    color: #888;
+    text-align: center;
+    margin-top: 80px;
+    font-size: 18px;
+}

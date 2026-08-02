@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MailReader by Mehedi Hasan</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Top Bar -->
+    <header class="topbar">
+        <div class="logo"> 📬 MailReader by Mehedi Hasan</div>
+        <div class="toolbar">
+            <button id="refreshBtn"> 🔄 Refresh </button>
+            <label class="autoRefresh">
+                <input type="checkbox" id="autoRefresh"> Auto Refresh </label>
+            <select id="refreshTime">
+                <option value="5000">5 Seconds</option>
+                <option value="10000" selected>10 Seconds</option>
+            </select>
+        </div>
+    </header>
+    <!-- Main Layout -->
+    <main class="container">
+        <!-- LEFT -->
+        <aside class="accounts">
+            <div class="section-title"> Accounts </div>
+            <!-- Search Box Wrapper -->
+            <div class="search-box-container">
+                <input type="text" id="accountSearch" placeholder="Search account..." />
+                <button id="clearSearchBtn" class="clear-btn">&times;</button>
+            </div>
+            <div id="accountList"></div>
+        </aside>
+        <!-- CENTER -->
+        <section class="messages">
+            <div class="section-title">
+                <span>All Messages</span>
+            </div>
+            <div id="messageList"></div>
+        </section>
+        <!-- RIGHT -->
+        <section class="viewer">
+            <div class="section-title"> Email Viewer </div>
+            <div id="emailContent">
+                <div class="placeholder"> Select an account and click Refresh. </div>
+            </div>
+        </section>
+    </main>
+    <script src="app.js"></script>
+</body>
+
+</html>
