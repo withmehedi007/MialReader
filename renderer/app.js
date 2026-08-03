@@ -1,211 +1,268 @@
-let allAccounts = [];
+// --- State ---
+let accounts = [];
 let selectedAccount = null;
 let currentMessages = [];
-let autoRefreshTimer = null;
 
-async function loadAccounts() {
-    allAccounts = await window.api.getAccounts();
-    renderAccounts(allAccounts);
+// --- DOM Elements ---
+const accountList = document.getElementById("accountList");
+const accountCount = document.getElementById("accountCount");
+const accountSearch = document.getElementById("accountSearch");
+
+const selectedAccountEmail = document.getElementById("selectedAccountEmail");
+const selectedAccountType = document.getElementById("selectedAccountType");
+const refreshBtn = document.getElementById("refreshBtn");
+
+const emailList = document.getElementById("emailList");
+const messageCount = document.getElementById("messageCount");
+const emailDetail = document.getElementById("emailDetail");
+
+// --- Modal Elements ---
+const editNoteBtn = document.getElementById("editNoteBtn");
+const noteModal = document.getElementById("noteModal");
+const noteInput = document.getElementById("noteInput");
+const selectedEmailLabel = document.getElementById("selectedEmailLabel");
+const cancelNoteBtn = document.getElementById("cancelNoteBtn");
+const saveNoteBtn = document.getElementById("saveNoteBtn");
+
+const addAccountBtn = document.getElementById("addAccountBtn");
+const addAccountModal = document.getElementById("addAccountModal");
+const newAccountInput = document.getElementById("newAccountInput");
+const cancelAddBtn = document.getElementById("cancelAddBtn");
+const saveAccountBtn = document.getElementById("saveAccountBtn");
+
+function parseLine(rawLine) {
+    let cleaned = rawLine.trim();
+    if (
+        !cleaned ||
+        cleaned.startsWith("module.exports") ||
+        cleaned.startsWith("[") ||
+        cleaned.startsWith("]") ||
+        cleaned.startsWith(";")
+    ) {
+        return null;
+    }
+
+    // Strip quotes and trailing comma
+    cleaned = cleaned.replace(/^["']|["'],?$/g, "").trim();
+
+    let parts = cleaned.split("|");
+
+    // Check if line is missing Note prefix (e.g. email|pass|token|clientId)
+    const isImap = parts.length >= 3 && parts[2] && parts[2].includes(":");
+
+    if (!isImap && parts.length === 4) {
+        // Automatically prepend empty note so structure becomes Note|email|pass|token|clientId
+        parts = ["", ...parts];
+        cleaned = parts.join("|");
+    }
+
+    const note = parts[0] || "";
+    const email = parts[1] || "Unknown";
+
+    return {
+        raw: cleaned,
+        note: note,
+        email: email,
+        type: isImap ? "IMAP" : "GRAPH",
+    };
 }
 
-function renderAccounts(accountsToDisplay) {
-    const accountList = document.getElementById("accountList");
-    if (!accountList) return;
-
+// --- Render Functions ---
+function renderAccounts(filterText = "") {
     accountList.innerHTML = "";
 
-    if (!accountsToDisplay || accountsToDisplay.length === 0) {
-        accountList.innerHTML = `<div style="padding: 14px; color: #888; font-size: 13px;">No accounts found</div>`;
+    const filtered = accounts.filter((acc) => {
+        const query = filterText.toLowerCase();
+        return acc.email.toLowerCase().includes(query) || acc.note.toLowerCase().includes(query);
+    });
+
+    accountCount.textContent = filtered.length;
+
+    if (filtered.length === 0) {
+        accountList.innerHTML = `<div class="empty-state">No accounts found</div>`;
         return;
     }
 
-    accountsToDisplay.forEach((account) => {
-        const div = document.createElement("div");
-        div.className = "account";
-
-        const emailText = account.email ? account.email.toLowerCase() : "No Email";
-        const noteText = account.note || "";
-
-        // Top line: Email | Bottom line: Note
-        div.innerHTML = `
-            <div class="account-email" style="font-weight: 400; font-size: 14px; color: #bdc2cdff; margin-bottom: 4px;">${emailText}</div>
-            ${noteText ? `<div class="account-note" style="font-size: 12px; color: #8a94a6;">✒️ ${noteText}</div>` : ""}
-        `;
-
-        if (selectedAccount && selectedAccount.email === account.email) {
-            div.style.background = "#202734";
-            div.style.borderLeft = "4px solid #2979ff";
+    filtered.forEach((acc) => {
+        const item = document.createElement("div");
+        item.className = "account-item";
+        if (selectedAccount && selectedAccount.raw === acc.raw) {
+            item.classList.add("active");
         }
 
-        div.onclick = () => selectAccount(account, div);
-        accountList.appendChild(div);
+        item.innerHTML = `
+            <div class="account-email">${acc.email}</div>
+            ${acc.note ? `<div class="account-note">${acc.note}</div>` : ""}
+        `;
+
+        item.onclick = () => selectAccount(acc);
+        accountList.appendChild(item);
     });
 }
 
-function resetEmailViewer() {
-    const emailContent = document.getElementById("emailContent");
-    emailContent.innerHTML = `
-        <div class="placeholder">Select an email message to view.</div>
-    `;
-}
+async function selectAccount(acc) {
+    selectedAccount = acc;
+    renderAccounts(accountSearch.value);
 
-function selectAccount(account, element) {
-    document.querySelectorAll(".account").forEach((x) => {
-        x.style.background = "";
-        x.style.borderLeft = "";
-    });
+    selectedAccountEmail.textContent = acc.email;
+    selectedAccountType.textContent = acc.type;
+    refreshBtn.disabled = false;
 
-    element.style.background = "#202734";
-    element.style.borderLeft = "4px solid #2979ff";
-
-    selectedAccount = account;
-
-    // Clear the Email Viewer when switching accounts
-    resetEmailViewer();
-
-    // Load messages for the selected account
-    loadMessages();
+    await loadMessages();
 }
 
 async function loadMessages() {
     if (!selectedAccount) return;
 
-    const messageList = document.getElementById("messageList");
-    messageList.innerHTML = `<div class="placeholder">Fetching all folder messages...</div>`;
+    emailList.innerHTML = `<div class="loading">Fetching messages...</div>`;
+    emailDetail.innerHTML = `<div class="empty-state">Select a message to read</div>`;
 
-    try {
-        const res = await window.api.getMessages(selectedAccount);
+    const response = await window.api.getMessages(selectedAccount.raw);
 
-        // 1. Handle API Failure or Returned Error
-        if (!res || !res.success) {
-            const rawError = res?.error || "Failed to fetch messages for this account.";
-
-            // Format AADSTS70000 / invalid_grant into a user-friendly UI message
-            let displayError = rawError;
-            if (rawError.includes("AADSTS70000") || rawError.includes("invalid_grant")) {
-                displayError =
-                    "Unauthorized / Token Expired: Please re-authenticate this Hotmail account.";
-            }
-
-            messageList.innerHTML = `
-                <div style="margin: 16px; padding: 14px; background-color: #2c1a1d; border: 1px solid #721c24; border-radius: 6px; color: #f8d7da; font-size: 13px; line-height: 1.5;">
-                    <div style="font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; color: #ff6b6b;">
-                        <span>⚠️ Account Error</span>
-                    </div>
-                    <div style="color: #e2b3b7; word-break: break-word;">${displayError}</div>
-                </div>`;
-            return;
-        }
-
-        // 2. Handle Empty Inbox / Folders
-        if (!res.data || res.data.length === 0) {
-            messageList.innerHTML = `<div class="placeholder">No messages found.</div>`;
-            return;
-        }
-
-        // 3. Render Messages Normally
-        currentMessages = res.data;
-        messageList.innerHTML = "";
-
-        currentMessages.forEach((msg) => {
-            const div = document.createElement("div");
-            div.className = "message-item";
-            div.style.padding = "12px 16px";
-            div.style.borderBottom = "1px solid #2b313d";
-            div.style.cursor = "pointer";
-
-            const senderName =
-                msg.from?.emailAddress?.name || msg.from?.emailAddress?.address || "Unknown";
-            const date = new Date(msg.receivedDateTime).toLocaleDateString();
-            const folderTag = (msg.folderName || "inbox").toUpperCase();
-            const badgeColor = folderTag.includes("JUNK") ? "#e53935" : "#2979ff";
-
-            div.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                    <strong style="font-size:14px; color:#fff;">${senderName}</strong>
-                    <span style="font-size:10px; background:${badgeColor}; color:#fff; padding:2px 6px; border-radius:4px; text-transform:uppercase;">${folderTag}</span>
-                </div>
-                <div style="font-size:13px; font-weight:600; color:#448aff; margin-bottom:4px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${msg.subject || "(No Subject)"}</div>
-                <div style="font-size:12px; color:#aaa; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${msg.bodyPreview || ""}</div>
-                <small style="color:#666; font-size:11px;">${date}</small>
-            `;
-
-            div.onclick = () => viewEmail(msg, div);
-            messageList.appendChild(div);
-        });
-    } catch (err) {
-        // Unexpected network / frontend runtime errors
-        messageList.innerHTML = `
-            <div style="margin: 16px; padding: 14px; background-color: #2c1a1d; border: 1px solid #721c24; border-radius: 6px; color: #f8d7da; font-size: 13px;">
-                <strong style="color: #ff6b6b;">⚠️ System Error:</strong> ${err.message || "Failed to process request."}
-            </div>`;
+    if (response.success) {
+        currentMessages = response.data;
+        messageCount.textContent = currentMessages.length;
+        renderEmailList(currentMessages);
+    } else {
+        emailList.innerHTML = `<div class="error-state">Failed: ${response.error}</div>`;
+        messageCount.textContent = "0";
     }
 }
 
-function viewEmail(msg, element) {
-    document.querySelectorAll("#messageList > div").forEach((x) => {
-        x.style.background = "";
+function renderEmailList(messages) {
+    emailList.innerHTML = "";
+
+    if (messages.length === 0) {
+        emailList.innerHTML = `<div class="empty-state">No messages found</div>`;
+        return;
+    }
+
+    messages.forEach((msg) => {
+        const item = document.createElement("div");
+        item.className = "email-item";
+
+        const formattedDate = msg.date ? new Date(msg.date).toLocaleDateString() : "";
+
+        item.innerHTML = `
+            <div class="email-item-header">
+                <span class="email-from">${msg.from}</span>
+                <span class="email-date">${formattedDate}</span>
+            </div>
+            <div class="email-subject">${msg.subject}</div>
+        `;
+
+        item.onclick = () => {
+            // 1. If this email item is already active/selected, DO NOTHING (prevents refresh & preserves text selection)
+            if (item.classList.contains("active")) {
+                return;
+            }
+
+            // 2. Otherwise, select the new item and render its content
+            document.querySelectorAll(".email-item").forEach((el) => el.classList.remove("active"));
+            item.classList.add("active");
+            renderEmailDetail(msg);
+        };
+
+        emailList.appendChild(item);
     });
-    element.style.background = "#1c212b";
+}
 
-    const emailContent = document.getElementById("emailContent");
-    const sender = msg.from?.emailAddress?.address || "Unknown";
-    const date = new Date(msg.receivedDateTime).toLocaleString();
+function renderEmailDetail(msg) {
+    const formattedDate = msg.date ? new Date(msg.date).toLocaleString() : "";
 
-    emailContent.innerHTML = `
-        <div style="padding: 20px; border-bottom: 1px solid #2b313d;">
-            <h2>${msg.subject || "(No Subject)"}</h2>
-            <p style="color:#888; font-size:14px; margin-top:6px;">From: <strong>${sender}</strong> | Folder: <strong>${(msg.folderName || "inbox").toUpperCase()}</strong> | ${date}</p>
+    emailDetail.innerHTML = `
+        <div class="email-detail-header">
+            <h2>${msg.subject}</h2>
+            <div class="meta-row"><strong>From:</strong> ${msg.from}</div>
+            <div class="meta-row"><strong>Date:</strong> ${formattedDate}</div>
         </div>
-        <div style="padding: 20px; color: #ddd; line-height: 1.6;">
-            ${msg.body?.content || msg.bodyPreview || "No content."}
-        </div>
+        <div class="email-body">${msg.body}</div>
     `;
 }
 
-// --- Instant Search Handlers ---
-const searchInput = document.getElementById("accountSearch");
-const clearBtn = document.getElementById("clearSearchBtn");
-
-searchInput.addEventListener("input", (e) => {
-    const query = e.target.value.toLowerCase().trim();
-    clearBtn.style.display = query.length > 0 ? "block" : "none";
-
-    const filtered = allAccounts.filter(
-        (acc) => acc.email.toLowerCase().includes(query) || acc.name.toLowerCase().includes(query),
-    );
-    renderAccounts(filtered);
-});
-
-clearBtn.addEventListener("click", () => {
-    searchInput.value = "";
-    clearBtn.style.display = "none";
-    renderAccounts(allAccounts);
-});
-
-// UI Event Listeners
-document.getElementById("refreshBtn").onclick = async () => {
-    if (!selectedAccount) {
-        alert("Select an account first.");
-        return;
-    }
-    await loadMessages();
-};
-
-function setupAutoRefresh() {
-    if (autoRefreshTimer) clearInterval(autoRefreshTimer);
-
-    const isAuto = document.getElementById("autoRefresh").checked;
-    const interval = parseInt(document.getElementById("refreshTime").value, 10);
-
-    if (isAuto) {
-        autoRefreshTimer = setInterval(() => {
-            if (selectedAccount) loadMessages();
-        }, interval);
-    }
+async function loadAccounts() {
+    const rawLines = await window.api.getAccounts();
+    accounts = rawLines.map(parseLine).filter((acc) => acc !== null && acc.email !== "Unknown");
+    renderAccounts(accountSearch.value);
 }
 
-document.getElementById("autoRefresh").onchange = setupAutoRefresh;
-document.getElementById("refreshTime").onchange = setupAutoRefresh;
+// --- Event Listeners ---
+accountSearch.oninput = (e) => {
+    renderAccounts(e.target.value);
+};
 
+refreshBtn.onclick = () => {
+    loadMessages();
+};
+
+// --- Modal Handlers ---
+
+// 1. Edit Note
+if (editNoteBtn) {
+    editNoteBtn.onclick = () => {
+        if (!selectedAccount) {
+            alert("Please select an account first.");
+            return;
+        }
+        selectedEmailLabel.innerText = selectedAccount.email;
+        noteInput.value = selectedAccount.note || "";
+        noteModal.style.display = "flex";
+    };
+}
+
+if (cancelNoteBtn) {
+    cancelNoteBtn.onclick = () => {
+        noteModal.style.display = "none";
+    };
+}
+
+if (saveNoteBtn) {
+    saveNoteBtn.onclick = async () => {
+        const newNote = noteInput.value.trim();
+        const res = await window.api.updateAccountNote(selectedAccount.email, newNote);
+
+        if (res.success) {
+            noteModal.style.display = "none";
+            selectedAccount.note = newNote; // Update local state note
+            await loadAccounts(); // Instantly update sidebar accounts
+        } else {
+            alert("Failed to update note: " + res.error);
+        }
+    };
+}
+
+// 2. Add Account
+if (addAccountBtn) {
+    addAccountBtn.onclick = () => {
+        newAccountInput.value = "";
+        addAccountModal.style.display = "flex";
+    };
+}
+
+if (cancelAddBtn) {
+    cancelAddBtn.onclick = () => {
+        addAccountModal.style.display = "none";
+    };
+}
+
+if (saveAccountBtn) {
+    saveAccountBtn.onclick = async () => {
+        const rawData = newAccountInput.value.trim();
+        if (!rawData) {
+            alert("Please enter account data.");
+            return;
+        }
+
+        const res = await window.api.addNewAccount(rawData);
+
+        if (res.success) {
+            addAccountModal.style.display = "none";
+            await loadAccounts(); // Refresh sidebar account list
+        } else {
+            alert("Failed to add account: " + res.error);
+        }
+    };
+}
+
+// --- Initialization ---
 loadAccounts();

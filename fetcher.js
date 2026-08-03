@@ -4,8 +4,11 @@ const axios = require("axios");
 /**
  * Line parser for mixed string formats
  */
+/**
+ * Line parser for mixed string formats
+ */
 function parseAccountLine(line) {
-    const parts = line.split("|");
+    let parts = line.split("|");
 
     // Format A: IMAP ("Note|email|pass:host:port|timestamp")
     if (parts.length >= 3 && parts[2].includes(":")) {
@@ -19,6 +22,11 @@ function parseAccountLine(line) {
             port: parseInt(port, 10) || 993,
             timestamp: parts[3] || null,
         };
+    }
+
+    // AUTO-FIX: If missing note at front (4 parts: email|pass|token|id), pad with empty note
+    if (parts.length === 4 && !parts[1].includes(":")) {
+        parts = ["", ...parts];
     }
 
     // Format B: Graph API ("Note|email|pass|refreshToken|clientId")

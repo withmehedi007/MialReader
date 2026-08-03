@@ -4,51 +4,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MailReader by Mehedi Hasan</title>
+    <title>Mail Reader</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <!-- Top Bar -->
-    <header class="topbar">
-        <div class="logo"> 📬 MailReader by Mehedi Hasan</div>
-        <div class="toolbar">
-            <button id="refreshBtn"> 🔄 Refresh </button>
-            <label class="autoRefresh">
-                <input type="checkbox" id="autoRefresh"> Auto Refresh </label>
-            <select id="refreshTime">
-                <option value="5000">5 Seconds</option>
-                <option value="10000" selected>10 Seconds</option>
-            </select>
-        </div>
-    </header>
-    <!-- Main Layout -->
-    <main class="container">
-        <!-- LEFT -->
-        <aside class="accounts">
-            <div class="section-title"> Accounts </div>
-            <!-- Search Box Wrapper -->
-            <div class="search-box-container">
-                <input type="text" id="accountSearch" placeholder="Search account..." />
-                <button id="clearSearchBtn" class="clear-btn">&times;</button>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Accounts</h2>
+                <span id="accountCount" class="badge">0</span>
             </div>
-            <div id="accountList"></div>
+            <div class="search-box">
+                <input type="text" id="accountSearch" placeholder="Search accounts...">
+            </div>
+            <div id="accountList" class="account-list">
+                <!-- Accounts injected dynamically -->
+            </div>
         </aside>
-        <!-- CENTER -->
-        <section class="messages">
-            <div class="section-title">
-                <span>All Messages</span>
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="selected-info">
+                    <h1 id="selectedAccountEmail">Select an account</h1>
+                    <span id="selectedAccountType" class="type-badge"></span>
+                </div>
+                <div class="controls">
+                    <!-- NEW ACTION BUTTONS -->
+                    <button id="addAccountBtn" class="btn btn-primary">➕ Add Account</button>
+                    <button id="editNoteBtn" class="btn btn-secondary">✏️ Edit Note</button>
+                    <button id="refreshBtn" class="btn btn-secondary" disabled>🔄 Refresh</button>
+                </div>
+            </header>
+            <div class="content-area">
+                <!-- Email List Column -->
+                <section class="email-list-section">
+                    <div class="section-header">
+                        <h3>Messages</h3>
+                        <span id="messageCount" class="badge">0</span>
+                    </div>
+                    <div id="emailList" class="email-list">
+                        <div class="empty-state">Select an account to view emails</div>
+                    </div>
+                </section>
+                <!-- Email Detail Column -->
+                <section class="email-detail-section">
+                    <div id="emailDetail" class="email-detail">
+                        <div class="empty-state">Select a message to read</div>
+                    </div>
+                </section>
             </div>
-            <div id="messageList"></div>
-        </section>
-        <!-- RIGHT -->
-        <section class="viewer">
-            <div class="section-title"> Email Viewer </div>
-            <div id="emailContent">
-                <div class="placeholder"> Select an account and click Refresh. </div>
+        </main>
+    </div>
+    <!-- MODAL 1: Edit Note -->
+    <div id="noteModal" class="modal"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.75); z-index: 9999; justify-content: center; align-items: center;">
+        <div
+            style="background: #181c24; border: 1px solid #2b313d; border-radius: 8px; width: 380px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+            <h3 style="color: #fff; margin: 0; font-size: 15px;">Edit Note</h3>
+            <p id="selectedEmailLabel" style="color: #448aff; font-size: 12px; margin: 0; word-break: break-all;"></p>
+            <input type="text" id="noteInput" placeholder="e.g. ig > m_ilford_893"
+                style="background: #0f1217; color: #fff; border: 1px solid #2b313d; padding: 10px; border-radius: 4px; outline: none; font-size: 13px;">
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+                <button id="cancelNoteBtn"
+                    style="background: #2b313d; color: #aaa; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">Cancel</button>
+                <button id="saveNoteBtn"
+                    style="background: #2979ff; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">Save
+                    Note</button>
             </div>
-        </section>
-    </main>
+        </div>
+    </div>
+    <!-- MODAL 2: Add New Account -->
+    <div id="addAccountModal" class="modal"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.75); z-index: 9999; justify-content: center; align-items: center;">
+        <div
+            style="background: #181c24; border: 1px solid #2b313d; border-radius: 8px; width: 460px; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+            <h3 style="color: #fff; margin: 0; font-size: 15px;">Add New Account Line</h3>
+            <textarea id="newAccountInput" placeholder="Paste pipe-separated account string..."
+                style="background: #0f1217; color: #69f0ae; border: 1px solid #2b313d; padding: 10px; border-radius: 4px; outline: none; font-size: 12px; font-family: monospace; height: 100px; resize: none;"></textarea>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+                <button id="cancelAddBtn"
+                    style="background: #2b313d; color: #aaa; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">Cancel</button>
+                <button id="saveAccountBtn"
+                    style="background: #2979ff; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer;">Add
+                    Account</button>
+            </div>
+        </div>
+    </div>
     <script src="app.js"></script>
 </body>
 
