@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mail Reader</title>
+    <title>Mail Reader by Mehedi Hasan</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -27,8 +27,14 @@
         <main class="main-content">
             <header class="top-bar">
                 <div class="selected-info">
-                    <h1 id="selectedAccountEmail">Select an account</h1>
-                    <span id="selectedAccountType" class="type-badge"></span>
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <h1 id="selectedAccountEmail">Select an account</h1>
+                            <span id="selectedAccountType" class="type-badge"></span>
+                        </div>
+                        <span id="selectedAccountNote"
+                            style="color: #69f0ae; font-size: 13px; font-weight: 500;"></span>
+                    </div>
                 </div>
                 <div class="controls">
                     <!-- NEW ACTION BUTTONS -->

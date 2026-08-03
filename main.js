@@ -87,17 +87,26 @@ ipcMain.handle("update-account-note", async (event, { email, newNote }) => {
 
         const updatedLines = lines.map((line) => {
             const cleaned = cleanLine(line);
+
+            // Match the line that contains this account's email
             if (cleaned && cleaned.toLowerCase().includes(email.toLowerCase())) {
                 let parts = cleaned.split("|");
 
-                // If line originally didn't have a note at parts[0]
-                if (parts.length === 4 && !parts[1].includes(":")) {
-                    parts = ["", ...parts]; // Ensure parts[0] is note position
+                // Check if index 0 is actually an email address
+                const firstPartIsEmail = parts[0].includes("@");
+
+                if (firstPartIsEmail) {
+                    // Line originally had NO note: prepend the new note to index 0
+                    // Result becomes: "Note|email@domain.com|pass..."
+                    parts.unshift(newNote);
+                } else {
+                    // Line ALREADY had a note at index 0: just overwrite index 0
+                    parts[0] = newNote;
                 }
 
-                parts[0] = newNote; // Replace/add note at position 0
                 const newLine = parts.join("|");
 
+                // Maintain original quotes & comma format
                 if (line.includes('"')) {
                     return `  "${newLine}",`;
                 }

@@ -11,6 +11,7 @@ const accountSearch = document.getElementById("accountSearch");
 const selectedAccountEmail = document.getElementById("selectedAccountEmail");
 const selectedAccountType = document.getElementById("selectedAccountType");
 const refreshBtn = document.getElementById("refreshBtn");
+const selectedAccountNote = document.getElementById("selectedAccountNote"); // <--- ADD THIS
 
 const emailList = document.getElementById("emailList");
 const messageCount = document.getElementById("messageCount");
@@ -42,27 +43,32 @@ function parseLine(rawLine) {
         return null;
     }
 
-    // Strip quotes and trailing comma
     cleaned = cleaned.replace(/^["']|["'],?$/g, "").trim();
+    const parts = cleaned.split("|");
 
-    let parts = cleaned.split("|");
+    // Helper to check if a string looks like an email address
+    const isEmail = (str) => str && str.includes("@");
 
-    // Check if line is missing Note prefix (e.g. email|pass|token|clientId)
-    const isImap = parts.length >= 3 && parts[2] && parts[2].includes(":");
+    let note = "";
+    let email = "Unknown";
 
-    if (!isImap && parts.length === 4) {
-        // Automatically prepend empty note so structure becomes Note|email|pass|token|clientId
-        parts = ["", ...parts];
-        cleaned = parts.join("|");
+    // Detect if parts[0] is the note or the email
+    if (isEmail(parts[0])) {
+        // Line format: email|pass... (No note)
+        note = "";
+        email = parts[0];
+    } else {
+        // Line format: note|email|pass...
+        note = parts[0] || "";
+        email = isEmail(parts[1]) ? parts[1] : parts[0];
     }
 
-    const note = parts[0] || "";
-    const email = parts[1] || "Unknown";
+    const isImap = cleaned.includes(":");
 
     return {
         raw: cleaned,
-        note: note,
-        email: email,
+        note,
+        email,
         type: isImap ? "IMAP" : "GRAPH",
     };
 }
@@ -106,6 +112,7 @@ async function selectAccount(acc) {
 
     selectedAccountEmail.textContent = acc.email;
     selectedAccountType.textContent = acc.type;
+    selectedAccountNote.textContent = acc.note ? acc.note : ""; // <--- ADD THIS
     refreshBtn.disabled = false;
 
     await loadMessages();
@@ -114,18 +121,27 @@ async function selectAccount(acc) {
 async function loadMessages() {
     if (!selectedAccount) return;
 
-    emailList.innerHTML = `<div class="loading">Fetching messages...</div>`;
+    // Show loading state
+    emailList.innerHTML = `<div class="loading">Loading messages...</div>`;
     emailDetail.innerHTML = `<div class="empty-state">Select a message to read</div>`;
+    messageCount.textContent = "0";
 
-    const response = await window.api.getMessages(selectedAccount.raw);
+    // Request messages from backend
+    const res = await window.api.getMessages(selectedAccount.raw);
 
-    if (response.success) {
-        currentMessages = response.data;
+    if (res.success) {
+        currentMessages = res.data;
         messageCount.textContent = currentMessages.length;
         renderEmailList(currentMessages);
     } else {
-        emailList.innerHTML = `<div class="error-state">Failed: ${response.error}</div>`;
+        // Display backend error inside the dashboard list column
+        currentMessages = [];
         messageCount.textContent = "0";
+        emailList.innerHTML = `
+            <div class="error-state" style="padding: 20px; color: #ff5252; font-size: 13px; word-break: break-word; line-height: 1.5;">
+                <strong>Failed:</strong> ${res.error}
+            </div>
+        `;
     }
 }
 
@@ -223,8 +239,21 @@ if (saveNoteBtn) {
 
         if (res.success) {
             noteModal.style.display = "none";
-            selectedAccount.note = newNote; // Update local state note
-            await loadAccounts(); // Instantly update sidebar accounts
+
+            // Remember current email
+            const targetEmail = selectedAccount.email;
+
+            // Reload fresh accounts from data.js
+            await loadAccounts();
+
+            // Update selectedAccount reference to the newly reloaded object
+            const updatedAcc = accounts.find(
+                (a) => a.email.toLowerCase() === targetEmail.toLowerCase(),
+            );
+            if (updatedAcc) {
+                selectedAccount = updatedAcc;
+                selectedAccountNote.textContent = updatedAcc.note;
+            }
         } else {
             alert("Failed to update note: " + res.error);
         }
